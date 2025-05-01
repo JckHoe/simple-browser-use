@@ -13,8 +13,9 @@ mcp = FastMCP("browser-use")
 
 browser = Browser(
     config=BrowserConfig(
-        chrome_instance_path="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome --remote-debugging-port=9222",
-        headless=True
+        browser_binary_path="/usr/bin/google-chrome-stable",
+        headless=True,
+        extra_browser_args=["--remote-debugging-port=9222"]
     )
 )
 
