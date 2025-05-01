@@ -24,14 +24,14 @@ agent = None
 
 
 @mcp.tool()
-async def perform_search(task: str, context: Context):
+async def perform_search(task: str, request_id: str, context: Context):
     """Perform the actual search in the background."""
     async def step_handler(state, *args):
         if len(args) != 2:
             return
         await context.session.send_log_message(
             level="info",
-            data={"screenshot": state.screenshot, "result": args[0]}
+            data={"screenshot": state.screenshot, "result": args[0], "request_id": request_id}
         )
 
     asyncio.create_task(
@@ -50,7 +50,6 @@ async def stop_search(*, context: Context):
 
 async def run_browser_agent(task: str, on_step: Callable[[], Awaitable[None]]):
     """Run the browser-use agent with the specified task."""
-    global agent
     try:
         agent = Agent(
             task=task,
