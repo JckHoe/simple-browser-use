@@ -11,11 +11,22 @@ load_dotenv()
 # Initialize FastMCP server
 mcp = FastMCP("browser-use")
 
+# Docker container browser configuration
 browser = Browser(
     config=BrowserConfig(
-        browser_binary_path="/usr/bin/google-chrome-stable",
+        # Use the Chromium binary installed in the Docker container
+        browser_binary_path="/usr/bin/chromium",
         headless=True,
-        extra_browser_args=["--remote-debugging-port=9222"]
+        # Add necessary flags for running in Docker
+        extra_browser_args=[
+            "--no-sandbox",
+            "--disable-setuid-sandbox",
+            "--disable-dev-shm-usage",
+            "--disable-accelerated-2d-canvas",
+            "--disable-gpu",
+            "--window-size=1920x1080",
+            "--remote-debugging-port=9222"
+        ]
     )
 )
 
