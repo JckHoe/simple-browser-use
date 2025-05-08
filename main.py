@@ -42,11 +42,20 @@ async def perform_search(task: str, request_id: str, context: Context):
             return
         await context.session.send_log_message(
             level="info",
-            data={"screenshot": state.screenshot, "result": args[0], "request_id": request_id}
+            data={"screenshot": state.screenshot, "result": args[0], "request_id": request_id, "last": False}
         )
 
+    async def done_handler(state, *args):
+        if len(args) != 2:
+            return
+        await context.session.send_log_message(
+            level="info",
+            data={"screenshot": state.screenshot, "result": args[0], "request_id": request_id, "last": True}
+        )
+
+
     asyncio.create_task(
-        run_browser_agent(task=task, on_step=step_handler)
+        run_browser_agent(task=task, on_step=step_handler, on_done=done_handler)
     )
     return "Processing Request"
 
@@ -59,7 +68,7 @@ async def stop_search(*, context: Context):
     return "Running Agent stopped"
 
 
-async def run_browser_agent(task: str, on_step: Callable[[], Awaitable[None]]):
+async def run_browser_agent(task: str, on_step: Callable[[], Awaitable[None]], on_done: Callable[[], Awaitable[None]]):
     """Run the browser-use agent with the specified task."""
     try:
         agent = Agent(
@@ -67,7 +76,7 @@ async def run_browser_agent(task: str, on_step: Callable[[], Awaitable[None]]):
             browser=browser,
             llm=llm,
             register_new_step_callback=on_step,
-            register_done_callback=on_step,
+            register_done_callback=on_done,
         )
 
         await agent.run()
