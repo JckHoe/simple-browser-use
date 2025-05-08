@@ -60,14 +60,6 @@ async def perform_search(task: str, request_id: str, context: Context):
     return "Processing Request"
 
 
-@mcp.tool()
-async def stop_search(*, context: Context):
-    """Stop a running browser agent search by task ID."""
-    if agent is not None:
-        await agent.stop()
-    return "Running Agent stopped"
-
-
 async def run_browser_agent(task: str, on_step: Callable[[], Awaitable[None]], on_done: Callable[[], Awaitable[None]]):
     """Run the browser-use agent with the specified task."""
     try:
