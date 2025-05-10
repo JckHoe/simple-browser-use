@@ -28,7 +28,6 @@ browser = Browser(
 llm = ChatOpenAI(model="gpt-4o")
 agent = None
 
-
 @mcp.tool()
 async def perform_search(task: str, request_id: str, context: Context):
     """Perform the actual search in the background."""

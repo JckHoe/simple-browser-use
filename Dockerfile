@@ -36,7 +36,6 @@ RUN playwright install-deps
 
 COPY .python-version .python-version
 COPY main.py main.py
-COPY requirements.txt requirements.txt
 
 ENV PYTHONUNBUFFERED=1
 
