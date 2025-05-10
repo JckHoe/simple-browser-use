@@ -5,19 +5,14 @@ from mcp.server.fastmcp import FastMCP, Context
 from browser_use import Agent, Browser, BrowserConfig
 from langchain_openai import ChatOpenAI
 
-# Load environment variables from .env file
 load_dotenv()
 
-# Initialize FastMCP server
 mcp = FastMCP("browser-use")
 
-# Docker container browser configuration
 browser = Browser(
     config=BrowserConfig(
-        # Use the Chromium binary installed in the Docker container
         browser_binary_path="/usr/bin/chromium",
         headless=True,
-        # Add necessary flags for running in Docker
         extra_browser_args=[
             "--no-sandbox",
             "--disable-setuid-sandbox",
