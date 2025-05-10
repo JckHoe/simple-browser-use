@@ -14,7 +14,7 @@ dependencies = [
     "openai==1.77.0",
     "python-dotenv>=1.0.0",
     "pydantic-settings>=2.0.3",
-    "browser-use==0.1.43",
+    "browser-use==0.1.45",
     "mcp-server==0.1.4",
     "langchain-openai==0.3.11",
     "playwright==1.51.0",
