@@ -1,4 +1,33 @@
-FROM python:3.11-slim
+FROM ghcr.io/astral-sh/uv:bookworm-slim AS builder
+
+ENV UV_COMPILE_BYTECODE=1 \
+    UV_LINK_MODE=copy \
+    UV_PYTHON_INSTALL_DIR=/python \
+    UV_PYTHON_PREFERENCE=only-managed
+
+# Install build dependencies and clean up in the same layer
+RUN apt-get update -y && \
+    apt-get install --no-install-recommends -y clang git && \
+    rm -rf /var/lib/apt/lists/*
+
+# Install Python before the project for caching
+RUN uv python install 3.13
+
+WORKDIR /app
+RUN --mount=type=cache,target=/root/.cache/uv \
+    --mount=type=bind,source=uv.lock,target=uv.lock \
+    --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
+    uv sync --frozen --no-install-project --no-dev
+
+COPY main.py /app/main.py
+COPY uv.lock /app/uv.lock
+COPY pyproject.toml /app/pyproject.toml
+COPY .python-version /app/.python-version
+
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --frozen --no-dev
+
+FROM debian:bookworm-slim AS runtime
 
 RUN apt-get update && apt-get install -y \
     chromium \
@@ -25,17 +54,18 @@ RUN apt-get update && apt-get install -y \
     libgtk-3-0 \
     && rm -rf /var/lib/apt/lists/*
 
+COPY --from=builder /python /python
+COPY --from=builder /app /app
+
+RUN chmod -R 755 /python /app
+
+ENV ANONYMIZED_TELEMETRY=false \
+    PATH="/app/.venv/bin:$PATH"
+
 WORKDIR /app
-
-COPY requirements.txt .
-
-RUN pip install --no-cache-dir -r requirements.txt
 
 RUN playwright install chromium
 RUN playwright install-deps
-
-COPY .python-version .python-version
-COPY main.py main.py
 
 ENV PYTHONUNBUFFERED=1
 
