@@ -3,6 +3,7 @@ from dotenv import load_dotenv
 from typing import Awaitable, Callable
 from mcp.server.fastmcp import FastMCP, Context
 from browser_use import Agent, Browser, BrowserConfig
+from browser_use.browser.context import BrowserContext, BrowserContextConfig
 from langchain_openai import ChatOpenAI
 
 load_dotenv()
@@ -21,9 +22,10 @@ browser = Browser(
             "--disable-gpu",
             "--window-size=1920x1080",
             "--remote-debugging-port=9222"
-        ]
+        ],
     )
 )
+
 
 llm = ChatOpenAI(model="gpt-4o")
 agent = None
@@ -56,10 +58,20 @@ async def perform_search(task: str, request_id: str, context: Context):
 
 async def run_browser_agent(task: str, on_step: Callable[[], Awaitable[None]], on_done: Callable[[], Awaitable[None]]):
     """Run the browser-use agent with the specified task."""
+    context=BrowserContext(
+        browser=browser,
+        config=BrowserContextConfig(
+            highlight_elements=False,
+            window_width=1920,
+            window_height=1080,
+            no_viewport=False,
+        )
+    )
     try:
         agent = Agent(
             task=task,
             browser=browser,
+            browser_context=context,
             llm=llm,
             register_new_step_callback=on_step,
             register_done_callback=on_done,
@@ -72,6 +84,7 @@ async def run_browser_agent(task: str, on_step: Callable[[], Awaitable[None]], o
     except Exception as e:
         return f"Error during execution: {str(e)}"
     finally:
+        await context.close()
         await browser.close()
 
 if __name__ == "__main__":
