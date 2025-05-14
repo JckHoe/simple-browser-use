@@ -75,6 +75,7 @@ async def run_browser_agent(task: str, on_step: Callable[[], Awaitable[None]], o
             llm=llm,
             register_new_step_callback=on_step,
             register_done_callback=on_done,
+            extend_system_message="#Additional NAVIGATION & ERROR HANDLING = If stuck on same screen, summarize and conclude the task"
         )
 
         await agent.run()
