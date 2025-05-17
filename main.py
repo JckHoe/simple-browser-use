@@ -2,7 +2,7 @@ import asyncio
 from dotenv import load_dotenv
 from typing import Awaitable, Callable
 from mcp.server.fastmcp import FastMCP, Context
-from browser_use import Agent, Browser, BrowserConfig
+from browser_use import Agent, AgentHistoryList, Browser, BrowserConfig
 from browser_use.browser.context import BrowserContext, BrowserContextConfig
 from langchain_openai import ChatOpenAI
 
@@ -28,7 +28,6 @@ browser = Browser(
 
 
 llm = ChatOpenAI(model="gpt-4o")
-agent = None
 
 @mcp.tool()
 async def perform_search(task: str, request_id: str, context: Context):
@@ -41,12 +40,15 @@ async def perform_search(task: str, request_id: str, context: Context):
             data={"screenshot": state.screenshot, "result": args[0], "request_id": request_id, "last": False}
         )
 
-    async def done_handler(state, *args):
-        if len(args) != 2:
-            return
+    async def done_handler(historyList: AgentHistoryList):
+        total = 0
+        for h in historyList.history:
+            if h.metadata:
+                total += h.metadata.input_tokens
+
         await context.session.send_log_message(
             level="info",
-            data={"screenshot": state.screenshot, "result": args[0], "request_id": request_id, "last": True}
+            data={"request_id": request_id, "last": True, "total_token": total}
         )
 
 
@@ -56,7 +58,7 @@ async def perform_search(task: str, request_id: str, context: Context):
     return "Processing Request"
 
 
-async def run_browser_agent(task: str, on_step: Callable[[], Awaitable[None]], on_done: Callable[[], Awaitable[None]]):
+async def run_browser_agent(task: str, on_step: Callable[[], Awaitable[None]], on_done: Callable[['AgentHistoryList'], Awaitable[None]]):
     """Run the browser-use agent with the specified task."""
     context=BrowserContext(
         browser=browser,
@@ -67,17 +69,17 @@ async def run_browser_agent(task: str, on_step: Callable[[], Awaitable[None]], o
             no_viewport=False,
         )
     )
+    agent = Agent(
+        task=task,
+        browser=browser,
+        browser_context=context,
+        llm=llm,
+        register_new_step_callback=on_step,
+        register_done_callback=on_done,
+        extend_system_message="#Additional NAVIGATION & ERROR HANDLING = If stuck on same screen, summarize and conclude the task"
+    )
+    
     try:
-        agent = Agent(
-            task=task,
-            browser=browser,
-            browser_context=context,
-            llm=llm,
-            register_new_step_callback=on_step,
-            register_done_callback=on_done,
-            extend_system_message="#Additional NAVIGATION & ERROR HANDLING = If stuck on same screen, summarize and conclude the task"
-        )
-
         await agent.run()
     except asyncio.CancelledError:
         return "Task was cancelled"
@@ -87,6 +89,7 @@ async def run_browser_agent(task: str, on_step: Callable[[], Awaitable[None]], o
     finally:
         await context.close()
         await browser.close()
+        await agent.close()
 
 if __name__ == "__main__":
     mcp.run(transport="sse")
