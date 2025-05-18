@@ -1,4 +1,5 @@
 import asyncio
+from browser_use.agent.service import AgentOutput, BrowserState
 from dotenv import load_dotenv
 from typing import Awaitable, Callable
 from mcp.server.fastmcp import FastMCP, Context
@@ -32,12 +33,10 @@ llm = ChatOpenAI(model="gpt-4o")
 @mcp.tool()
 async def perform_search(task: str, request_id: str, context: Context):
     """Perform the actual search in the background."""
-    async def step_handler(state, *args):
-        if len(args) != 2:
-            return
+    async def step_handler(state, agent_output, step_no):
         await context.session.send_log_message(
             level="info",
-            data={"screenshot": state.screenshot, "result": args[0], "request_id": request_id, "last": False}
+            data={"screenshot": state.screenshot, "result": agent_output, "step_no": step_no, "request_id": request_id, "is_last": False}
         )
 
     async def done_handler(historyList: AgentHistoryList):
@@ -48,7 +47,7 @@ async def perform_search(task: str, request_id: str, context: Context):
 
         await context.session.send_log_message(
             level="info",
-            data={"request_id": request_id, "last": True, "total_token": total}
+            data={"request_id": request_id, "is_last": True, "total_token": total}
         )
 
 
@@ -58,7 +57,11 @@ async def perform_search(task: str, request_id: str, context: Context):
     return "Processing Request"
 
 
-async def run_browser_agent(task: str, on_step: Callable[[], Awaitable[None]], on_done: Callable[['AgentHistoryList'], Awaitable[None]]):
+async def run_browser_agent(
+        task: str, 
+        on_step: Callable[['BrowserState', 'AgentOutput', int], Awaitable[None]], 
+        on_done: Callable[['AgentHistoryList'], Awaitable[None]]
+    ):
     """Run the browser-use agent with the specified task."""
     context=BrowserContext(
         browser=browser,
