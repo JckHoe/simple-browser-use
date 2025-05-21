@@ -80,7 +80,7 @@ async def run_browser_agent(
         llm=llm,
         register_new_step_callback=on_step,
         register_done_callback=on_done,
-        extend_system_message="#Additional NAVIGATION & ERROR HANDLING = If stuck on same screen, summarize and conclude the task"
+        extend_system_message="#Additional NAVIGATION & ERROR HANDLING = If stuck on same screen, summarize and conclude the task. DO NOT attempt to LOGIN sites that require LOGIN, just conclude the task"
     )
     
     try:
