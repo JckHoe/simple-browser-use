@@ -16,7 +16,7 @@ from browser_use.browser.context import BrowserContextConfig
 from browser_use.browser.utils.screen_resolution import get_screen_resolution, get_window_adjustments
 import socket
 
-from src.custom_context import CustomBrowserContext
+from app.custom_context import CustomBrowserContext
 
 
 logger = logging.getLogger(__name__)
@@ -33,7 +33,6 @@ class CustomBrowser(Browser):
     async def _setup_builtin_browser(self, playwright: Playwright) -> PlaywrightBrowser:
         assert self.config.browser_binary_path is None, 'browser_binary_path should be None if trying to use the builtin browsers'
 
-        # Use the configured window size from new_context_config if available
         if (
                 not self.config.headless
                 and hasattr(self.config, 'new_context_config')
