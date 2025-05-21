@@ -27,7 +27,6 @@ browser = CustomBrowser(
                 "--disable-accelerated-2d-canvas",
                 "--disable-gpu",
                 "--window-size=1920x1080",
-                "--remote-debugging-port=9222"
             ],
             new_context_config=BrowserContextConfig(
                 highlight_elements=False,
