@@ -1,5 +1,5 @@
 import asyncio
-from browser_use.agent.service import AgentOutput, BrowserState
+from browser_use.agent.service import AgentOutput, BrowserContext, BrowserState
 from dotenv import load_dotenv
 from typing import Awaitable, Callable
 from mcp.server.fastmcp import FastMCP, Context
@@ -28,12 +28,6 @@ browser = CustomBrowser(
                 "--disable-gpu",
                 "--window-size=1920x1080",
             ],
-            new_context_config=BrowserContextConfig(
-                highlight_elements=False,
-                window_width=1920,
-                window_height=1080,
-                no_viewport=False,
-            )
         )
     )
 
@@ -73,6 +67,16 @@ async def run_browser_agent(
     agent = Agent(
         task=task,
         browser=browser,
+        browser_context=BrowserContext(
+            browser=browser,
+            config=BrowserContextConfig(
+                highlight_elements=False,
+                window_width=1920,
+                window_height=1080,
+                no_viewport=False,
+            )
+        ),
+        enable_memory=False,
         llm=llm,
         register_new_step_callback=on_step,
         register_done_callback=on_done,
