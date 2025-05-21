@@ -7,7 +7,7 @@ from browser_use import Agent, AgentHistoryList, BrowserConfig
 from browser_use.browser.context import BrowserContextConfig
 from langchain_openai import ChatOpenAI
 
-from src.custom_browser import CustomBrowser
+from app.custom_browser import CustomBrowser
 
 load_dotenv()
 
