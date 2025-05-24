@@ -15,22 +15,6 @@ mcp = FastMCP("browser-use")
 
 llm = ChatOpenAI(model="gpt-4o")
 
-# Factory of browser
-browser = CustomBrowser(
-        config=BrowserConfig(
-            browser_binary_path="/usr/bin/chromium",
-            headless=True, # TODO disable the headless
-            extra_browser_args=[
-                "--no-sandbox",
-                "--disable-setuid-sandbox",
-                "--disable-dev-shm-usage",
-                "--disable-accelerated-2d-canvas",
-                "--disable-gpu",
-                "--window-size=1920x1080",
-                "--disable-blink-features=AutomationControlled",
-            ],
-        )
-    )
 
 @mcp.tool()
 async def perform_search(task: str, request_id: str, context: Context):
@@ -65,6 +49,22 @@ async def run_browser_agent(
         on_done: Callable[['AgentHistoryList'], Awaitable[None]]
     ):
     """Run the browser-use agent with the specified task."""
+    browser = CustomBrowser(
+        config=BrowserConfig(
+            browser_binary_path="/usr/bin/chromium",
+            headless=True, # TODO disable the headless
+            extra_browser_args=[
+                "--no-sandbox",
+                "--disable-setuid-sandbox",
+                "--disable-dev-shm-usage",
+                "--disable-accelerated-2d-canvas",
+                "--disable-gpu",
+                "--window-size=1920x1080",
+                "--disable-blink-features=AutomationControlled",
+            ],
+        )
+    )
+
     agent = Agent(
         task=task,
         browser=browser,
@@ -92,6 +92,7 @@ async def run_browser_agent(
     except Exception as e:
         return f"Error during execution: {str(e)}"
     finally:
+        await browser.close()
         await agent.close()
 
 
