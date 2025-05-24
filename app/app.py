@@ -64,11 +64,7 @@ async def run_browser_agent(
             ],
         )
     )
-
-    agent = Agent(
-        task=task,
-        browser=browser,
-        browser_context=BrowserContext(
+    context = BrowserContext(
             browser=browser,
             config=BrowserContextConfig(
                 highlight_elements=False,
@@ -76,7 +72,12 @@ async def run_browser_agent(
                 window_height=1080,
                 no_viewport=False,
             )
-        ),
+        )
+
+    agent = Agent(
+        task=task,
+        browser=browser,
+        browser_context=context,
         enable_memory=False,
         llm=llm,
         register_new_step_callback=on_step,
@@ -92,6 +93,7 @@ async def run_browser_agent(
     except Exception as e:
         return f"Error during execution: {str(e)}"
     finally:
+        await context.close()
         await browser.close()
         await agent.close()
 
