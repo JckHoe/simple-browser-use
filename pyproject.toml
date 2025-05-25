@@ -17,5 +17,5 @@ dependencies = [
     "browser-use==0.1.48",
     "mcp-server==0.1.4",
     "langchain-openai==0.3.11",
-    "playwright-recaptcha==0.5.1",
+    "playwright==1.52.0",
 ]
