@@ -52,7 +52,7 @@ async def run_browser_agent(
     browser = CustomBrowser(
         config=BrowserConfig(
             browser_binary_path="/usr/bin/chromium",
-            headless=True, # TODO disable the headless
+            headless=False, # TODO disable the headless
             extra_browser_args=[
                 "--no-sandbox",
                 "--disable-setuid-sandbox",
