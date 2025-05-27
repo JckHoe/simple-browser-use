@@ -32,6 +32,8 @@ FROM debian:bookworm-slim AS runtime
 
 RUN apt-get update && apt-get install -y \
     chromium \
+    xvfb \
+    x11-utils \
     fonts-ipafont-gothic \
     fonts-wqy-zenhei \
     fonts-thai-tlwg \
@@ -46,7 +48,6 @@ RUN apt-get update && apt-get install -y \
     libxtst6 \
     libnss3 \
     libcups2 \
-    libxss1 \
     libxrandr2 \
     libasound2 \
     libpangocairo-1.0-0 \
@@ -63,6 +64,9 @@ RUN chmod -R 755 /python /app
 ENV ANONYMIZED_TELEMETRY=false \
     PATH="/app/.venv/bin:$PATH"
 
+ENV DISPLAY=:99
+ENV PYTHONUNBUFFERED=1
+
 WORKDIR /app
 
 RUN playwright install chromium
@@ -70,4 +74,4 @@ RUN playwright install-deps
 
 ENV PYTHONUNBUFFERED=1
 
-CMD ["python", "main.py"]
+CMD xvfb-run --auto-servernum --server-args='-screen 0 1920x1080x24' python main.py
