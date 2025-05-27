@@ -15,7 +15,6 @@ mcp = FastMCP("browser-use")
 
 llm = ChatOpenAI(model="gpt-4o")
 
-
 @mcp.tool()
 async def perform_search(task: str, request_id: str, context: Context):
     """Perform the actual search in the background."""
@@ -38,12 +37,13 @@ async def perform_search(task: str, request_id: str, context: Context):
 
 
     asyncio.create_task(
-        run_browser_agent(task=task, on_step=step_handler, on_done=done_handler)
+        run_browser_agent(request_id=request_id, task=task, on_step=step_handler, on_done=done_handler)
     )
     return "Processing Request"
 
 
 async def run_browser_agent(
+        request_id: str,
         task: str, 
         on_step: Callable[['BrowserState', 'AgentOutput', int], Awaitable[None]], 
         on_done: Callable[['AgentHistoryList'], Awaitable[None]]
@@ -52,15 +52,51 @@ async def run_browser_agent(
     browser = CustomBrowser(
         config=BrowserConfig(
             browser_binary_path="/usr/bin/chromium",
-            headless=False, # TODO disable the headless
+            headless=False,
             extra_browser_args=[
                 "--no-sandbox",
                 "--disable-setuid-sandbox",
                 "--disable-dev-shm-usage",
                 "--disable-accelerated-2d-canvas",
                 "--disable-gpu",
-                "--window-size=1920x1080",
                 "--disable-blink-features=AutomationControlled",
+                "--window-size=1920x1080",
+                # Additional Tuning features on browser
+                "--enable-pinch",
+                "--disable-field-trial-config",
+                "--disable-features=TFLiteLanguageDetectionEnabled",
+                "--disable-background-networking",
+                "--disable-background-timer-throttling",
+                "--disable-backgrounding-occluded-windows",
+                "--disable-back-forward-cache",
+                "--disable-breakpad",
+                "--disable-client-side-phishing-detection",
+                "--disable-component-extensions-with-background-pages",
+                "--disable-component-update",
+                "--no-default-browser-check",
+                "--disable-default-apps",
+                "--disable-features=ImprovedCookieControls,LazyFrameLoading,GlobalMediaControls,MediaRouter,DialMediaRouteProvider,AcceptCHFrame,AutoExpandDetailsElement,CertificateTransparencyComponentUpdater,AvoidUnnecessaryBeforeUnloadCheckSync,Translate,HttpsUpgrades,PaintHolding",
+                "--disable-hang-monitor",
+                "--disable-ipc-flooding-protection",
+                "--disable-popup-blocking",
+                "--disable-prompt-on-repost",
+                "--disable-renderer-backgrounding",
+                "--force-color-profile=srgb",
+                "--allow-pre-commit-input",
+                "--metrics-recording-only",
+                "--password-store=basic",
+                "--use-mock-keychain",
+                "--no-service-autorun",
+                "--no-first-run",
+                "--export-tagged-pdf",
+                "--disable-search-engine-choice-screen",
+                "--noerrdialogs",
+                "--mute-audio",
+                # Enable features
+                "--enable-features=NetworkService,NetworkServiceInProcess",
+                "--user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36",
+                f"--user-data-dir=/root/.config/browseruse/profiles/{request_id}",
+                # TODO add extensions
             ],
         )
     )
