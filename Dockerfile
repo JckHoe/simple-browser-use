@@ -69,6 +69,8 @@ ENV PYTHONUNBUFFERED=1
 
 WORKDIR /app
 
+COPY extensions /app/extensions
+
 RUN playwright install chromium
 RUN playwright install-deps
 
