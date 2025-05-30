@@ -16,7 +16,7 @@ mcp = FastMCP("browser-use")
 llm = ChatOpenAI(model="gpt-4o")
 
 @mcp.tool()
-async def perform_search(task: str, request_id: str, context: Context):
+async def perform_search(task: str, request_id: str, context: Context, timeout_seconds: int = 300):
     """Perform the actual search in the background."""
     async def step_handler(state, agent_output, step_no):
         await context.session.send_log_message(
@@ -35,10 +35,20 @@ async def perform_search(task: str, request_id: str, context: Context):
             data={"request_id": request_id, "is_last": True, "total_token": total}
         )
 
+    async def timeout_handler():
+        empty_history = AgentHistoryList(history=[])
+        await done_handler(empty_history)
 
-    asyncio.create_task(
-        run_browser_agent(request_id=request_id, task=task, on_step=step_handler, on_done=done_handler)
-    )
+    async def run_with_timeout():
+        try:
+            await asyncio.wait_for(
+                run_browser_agent(request_id=request_id, task=task, on_step=step_handler, on_done=done_handler),
+                timeout=timeout_seconds
+            )
+        except asyncio.TimeoutError:
+            await timeout_handler()
+
+    asyncio.create_task(run_with_timeout())
     return "Processing Request"
 
 
