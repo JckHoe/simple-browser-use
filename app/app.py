@@ -16,7 +16,7 @@ mcp = FastMCP("browser-use")
 llm = ChatOpenAI(model="gpt-4o")
 
 @mcp.tool()
-async def perform_search(task: str, request_id: str, context: Context):
+async def perform_search(task: str, request_id: str, context: Context, timeout_seconds: int = 5):
     """Perform the actual search in the background."""
     async def step_handler(state, agent_output, step_no):
         await context.session.send_log_message(
@@ -35,10 +35,21 @@ async def perform_search(task: str, request_id: str, context: Context):
             data={"request_id": request_id, "is_last": True, "total_token": total}
         )
 
+    # async def run_with_timeout():
+    #     try:
+    #         print(f"[Agent] starting agent with timeout of {timeout_seconds} seconds.")
+    #         await asyncio.wait_for(
+    #             run_browser_agent(request_id=request_id, task=task, on_step=step_handler, on_done=done_handler),
+    #             timeout=timeout_seconds
+    #         )
+    #     except asyncio.TimeoutError:
+    #         print(f"ReqID:{request_id} Timeout while executing tasks")
+    #         await context.session.send_log_message(
+    #             level="info",
+    #             data={"request_id": request_id, "is_last": True, "total_token": 0, "timeout_summary": "Ran out of time to process"}
+    #         )
 
-    asyncio.create_task(
-        run_browser_agent(request_id=request_id, task=task, on_step=step_handler, on_done=done_handler)
-    )
+    asyncio.create_task(run_browser_agent(request_id=request_id, task=task, on_step=step_handler, on_done=done_handler))
     return "Processing Request"
 
 
@@ -120,15 +131,30 @@ async def run_browser_agent(
         register_done_callback=on_done,
         extend_system_message="#Additional NAVIGATION & ERROR HANDLING = If stuck on same screen, summarize and conclude the task. DO NOT attempt to LOGIN sites that require LOGIN, just conclude the task"
     )
+
+    # Callable[['Agent'], Awaitable[None]]
+    async def on_step_start_handler(agent: Agent):
+        print(f"{agent} starting")
+
+    async def on_step_end_handler(agent: Agent):
+        # agent.stop()
+        print(f"{agent} ending")
     
     try:
-        await agent.run()
+        await agent.run(
+            max_steps=20,
+            on_step_start=on_step_start_handler,
+            on_step_end=on_step_end_handler
+        )
+    except asyncio.TimeoutError:
+        print(f"ReqID:{request_id} Timeout while executing tasks")
     except asyncio.CancelledError:
         return "Task was cancelled"
 
     except Exception as e:
         return f"Error during execution: {str(e)}"
     finally:
+        print("[Agent] cleaning up agent")
         await context.close()
         await browser.close()
         await agent.close()
