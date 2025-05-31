@@ -36,11 +36,14 @@ async def perform_search(task: str, request_id: str, context: Context, timeout_s
         )
 
     async def timeout_handler():
-        empty_history = AgentHistoryList(history=[])
-        await done_handler(empty_history)
+        await context.session.send_log_message(
+            level="info",
+            data={"request_id": request_id, "is_last": True, "total_token": 0, "summary": "Ran out of time to process"}
+        )
 
     async def run_with_timeout():
         try:
+            print(f"[Agent] starting agent with timeout of {timeout_seconds} seconds.")
             await asyncio.wait_for(
                 run_browser_agent(request_id=request_id, task=task, on_step=step_handler, on_done=done_handler),
                 timeout=timeout_seconds
@@ -132,6 +135,7 @@ async def run_browser_agent(
     )
     
     try:
+        print("[Agent] Starting agent")
         await agent.run()
     except asyncio.CancelledError:
         return "Task was cancelled"
@@ -139,6 +143,7 @@ async def run_browser_agent(
     except Exception as e:
         return f"Error during execution: {str(e)}"
     finally:
+        print("[Agent] cleaning up agent")
         await context.close()
         await browser.close()
         await agent.close()
