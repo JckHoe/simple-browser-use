@@ -61,7 +61,7 @@ COPY --from=builder /app /app
 
 RUN chmod -R 755 /python /app
 
-ENV ANONYMIZED_TELEMETRY=false \
+ENV ANONYMIZED_TELEMETRY=true \
     PATH="/app/.venv/bin:$PATH"
 
 ENV DISPLAY=:99
