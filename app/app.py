@@ -1,3 +1,5 @@
+import os
+import time
 import asyncio
 from browser_use.agent.service import AgentOutput, BrowserContext, BrowserState
 from dotenv import load_dotenv
@@ -15,8 +17,10 @@ mcp = FastMCP("browser-use")
 
 llm = ChatOpenAI(model="gpt-4o")
 
+TASK_MAX_TIME_SECONDS = os.getenv("TASK_MAX_TIME_SECONDS", "10")
+
 @mcp.tool()
-async def perform_search(task: str, request_id: str, context: Context, timeout_seconds: int = 5):
+async def perform_search(task: str, request_id: str, context: Context):
     """Perform the actual search in the background."""
     async def step_handler(state, agent_output, step_no):
         await context.session.send_log_message(
@@ -35,29 +39,16 @@ async def perform_search(task: str, request_id: str, context: Context, timeout_s
             data={"request_id": request_id, "is_last": True, "total_token": total}
         )
 
-    # async def run_with_timeout():
-    #     try:
-    #         print(f"[Agent] starting agent with timeout of {timeout_seconds} seconds.")
-    #         await asyncio.wait_for(
-    #             run_browser_agent(request_id=request_id, task=task, on_step=step_handler, on_done=done_handler),
-    #             timeout=timeout_seconds
-    #         )
-    #     except asyncio.TimeoutError:
-    #         print(f"ReqID:{request_id} Timeout while executing tasks")
-    #         await context.session.send_log_message(
-    #             level="info",
-    #             data={"request_id": request_id, "is_last": True, "total_token": 0, "timeout_summary": "Ran out of time to process"}
-    #         )
+    asyncio.create_task(run_browser_agent(request_id=request_id, task=task, on_step=step_handler, on_done=done_handler, context=context))
 
-    asyncio.create_task(run_browser_agent(request_id=request_id, task=task, on_step=step_handler, on_done=done_handler))
     return "Processing Request"
-
 
 async def run_browser_agent(
         request_id: str,
         task: str, 
         on_step: Callable[['BrowserState', 'AgentOutput', int], Awaitable[None]], 
-        on_done: Callable[['AgentHistoryList'], Awaitable[None]]
+        on_done: Callable[['AgentHistoryList'], Awaitable[None]],
+        context: Context,
     ):
     """Run the browser-use agent with the specified task."""
     browser = CustomBrowser(
@@ -111,7 +102,7 @@ async def run_browser_agent(
             ],
         )
     )
-    context = BrowserContext(
+    browser_context = BrowserContext(
             browser=browser,
             config=BrowserContextConfig(
                 highlight_elements=False,
@@ -124,7 +115,7 @@ async def run_browser_agent(
     agent = Agent(
         task=task,
         browser=browser,
-        browser_context=context,
+        browser_context=browser_context,
         enable_memory=False,
         llm=llm,
         register_new_step_callback=on_step,
@@ -132,22 +123,27 @@ async def run_browser_agent(
         extend_system_message="#Additional NAVIGATION & ERROR HANDLING = If stuck on same screen, summarize and conclude the task. DO NOT attempt to LOGIN sites that require LOGIN, just conclude the task"
     )
 
-    # Callable[['Agent'], Awaitable[None]]
-    async def on_step_start_handler(agent: Agent):
-        print(f"{agent} starting")
+    start_time = time.monotonic()
 
     async def on_step_end_handler(agent: Agent):
-        # agent.stop()
-        print(f"{agent} ending")
+        end_time = time.monotonic()
+        elapsed = end_time - start_time
+
+        print(f"Request {request_id} Elapsed time: {elapsed:.2f} seconds")
+        if elapsed > float(TASK_MAX_TIME_SECONDS):
+            print(f"{request_id}: Exceeded time stopping agent and responding.")
+            agent.stop()
+            # TODO summarize current token usage
+            await context.session.send_log_message(
+                level="info",
+                data={"request_id": request_id, "is_last": True, "total_token": 0, "timeout_summary": "Sorry, Ran out of time to complete the tasks, perhaps provide smaller tasks for the browser visualizer function."}
+            )
     
     try:
         await agent.run(
             max_steps=20,
-            on_step_start=on_step_start_handler,
             on_step_end=on_step_end_handler
         )
-    except asyncio.TimeoutError:
-        print(f"ReqID:{request_id} Timeout while executing tasks")
     except asyncio.CancelledError:
         return "Task was cancelled"
 
@@ -155,7 +151,7 @@ async def run_browser_agent(
         return f"Error during execution: {str(e)}"
     finally:
         print("[Agent] cleaning up agent")
-        await context.close()
+        await browser_context.close()
         await browser.close()
         await agent.close()
 
