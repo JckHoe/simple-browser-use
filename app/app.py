@@ -17,7 +17,7 @@ mcp = FastMCP("browser-use")
 
 llm = ChatOpenAI(model="gpt-4o")
 
-TASK_MAX_TIME_SECONDS = os.getenv("TASK_MAX_TIME_SECONDS", "10")
+TASK_MAX_TIME_SECONDS = os.getenv("TASK_MAX_TIME_SECONDS", "300")
 
 @mcp.tool()
 async def perform_search(task: str, request_id: str, context: Context):
