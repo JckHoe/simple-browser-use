@@ -1,15 +1,16 @@
+import contextvars
 import os
 import time
 import asyncio
 from browser_use.agent.service import AgentOutput, BrowserContext, BrowserState
 from dotenv import load_dotenv
-from typing import Awaitable, Callable
 from mcp.server.fastmcp import FastMCP, Context
 from browser_use import Agent, AgentHistoryList, BrowserConfig
 from browser_use.browser.context import BrowserContextConfig
 from langchain_openai import ChatOpenAI
 
 from app.custom_browser import CustomBrowser
+from app.util.helper import calculate_total_token
 
 load_dotenv()
 
@@ -22,32 +23,12 @@ TASK_MAX_TIME_SECONDS = os.getenv("TASK_MAX_TIME_SECONDS", "300")
 @mcp.tool()
 async def perform_search(task: str, request_id: str, context: Context):
     """Perform the actual search in the background."""
-    async def step_handler(state, agent_output, step_no):
-        await context.session.send_log_message(
-            level="info",
-            data={"screenshot": state.screenshot, "result": agent_output, "step_no": step_no, "request_id": request_id, "is_last": False}
-        )
-
-    async def done_handler(historyList: AgentHistoryList):
-        total = 0
-        for h in historyList.history:
-            if h.metadata:
-                total += h.metadata.input_tokens
-
-        await context.session.send_log_message(
-            level="info",
-            data={"request_id": request_id, "is_last": True, "total_token": total}
-        )
-
-    asyncio.create_task(run_browser_agent(request_id=request_id, task=task, on_step=step_handler, on_done=done_handler, context=context))
-
+    asyncio.create_task(run_browser_agent(request_id=request_id, task=task, context=context))
     return "Processing Request"
 
 async def run_browser_agent(
         request_id: str,
         task: str, 
-        on_step: Callable[['BrowserState', 'AgentOutput', int], Awaitable[None]], 
-        on_done: Callable[['AgentHistoryList'], Awaitable[None]],
         context: Context,
     ):
     """Run the browser-use agent with the specified task."""
@@ -112,17 +93,39 @@ async def run_browser_agent(
             )
         )
 
+    agent = None
+
+    async def step_handler(state: BrowserState, agent_output: AgentOutput, step_no):
+        current_total = 0
+        if agent:
+            current_total = calculate_total_token(agent.state.history)
+            print(f"Current : Count {current_total}")
+
+        await context.session.send_log_message(
+            level="info",
+            data={"screenshot": state.screenshot, "result": agent_output, "step_no": step_no, "request_id": request_id, "is_last": False, "total_token": current_total}
+    )
+
+    async def done_handler(historyList: AgentHistoryList):
+        total = calculate_total_token(historyList)
+
+        await context.session.send_log_message(
+            level="info",
+            data={"request_id": request_id, "is_last": True, "total_token": total}
+        )
+
+
     agent = Agent(
         task=task,
         browser=browser,
         browser_context=browser_context,
         enable_memory=False,
         llm=llm,
-        register_new_step_callback=on_step,
-        register_done_callback=on_done,
+        register_new_step_callback=step_handler,
+        register_done_callback=done_handler,
         extend_system_message="#Additional NAVIGATION & ERROR HANDLING = If stuck on same screen, summarize and conclude the task. DO NOT attempt to LOGIN sites that require LOGIN, just conclude the task"
     )
-
+    
     start_time = time.monotonic()
 
     async def on_step_end_handler(agent: Agent):
@@ -132,11 +135,12 @@ async def run_browser_agent(
         print(f"Request {request_id} Elapsed time: {elapsed:.2f} seconds")
         if elapsed > float(TASK_MAX_TIME_SECONDS):
             print(f"{request_id}: Exceeded time stopping agent and responding.")
+            current_total = calculate_total_token(agent.state.history)
             agent.stop()
-            # TODO summarize current token usage
+
             await context.session.send_log_message(
                 level="info",
-                data={"request_id": request_id, "is_last": True, "total_token": 0, "timeout_summary": "Sorry, Ran out of time to complete the tasks, perhaps provide smaller tasks for the browser visualizer function."}
+                data={"request_id": request_id, "is_last": True, "total_token": current_total, "timeout_summary": "Sorry, Ran out of time to complete the tasks, perhaps provide smaller tasks for the browser visualizer function."}
             )
     
     try:
@@ -154,5 +158,4 @@ async def run_browser_agent(
         await browser_context.close()
         await browser.close()
         await agent.close()
-
 
