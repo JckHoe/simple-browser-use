@@ -76,4 +76,7 @@ RUN playwright install-deps
 
 ENV PYTHONUNBUFFERED=1
 
-CMD xvfb-run --auto-servernum --server-args='-screen 0 1920x1080x24' python main.py
+# CMD xvfb-run --auto-servernum --server-args='-screen 0 1920x1080x24' python main.py
+RUN apt-get update && apt-get install -y tini
+ENTRYPOINT ["/usr/bin/tini", "--"]
+CMD ["bash", "-c", "Xvfb :99 -screen 0 1920x1080x24 & exec python main.py"]
