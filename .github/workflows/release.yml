@@ -8,6 +8,10 @@ on:
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
+    environment:
+      name: production
+      required_reviewers:
+        - jckhoe
 
     permissions:
       packages: write
